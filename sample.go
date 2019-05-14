@@ -27,6 +27,7 @@ type Sample interface {
 	StdDev() float64
 	Sum() int64
 	Update(int64) float64
+	Updates([]int64)
 	Values() []int64
 	Variance() float64
 }
@@ -232,6 +233,10 @@ func (s *ExpDecaySample) Update(v int64) float64 {
 	return s.update(time.Now(), v)
 }
 
+// Updates samples a new value.
+func (s *ExpDecaySample) Updates(v []int64) {
+	s.updates(time.Now(), v)
+}
 // Values returns a copy of the values in the sample.
 func (s *ExpDecaySample) Values() []int64 {
 	s.mutex.Lock()
@@ -262,6 +267,20 @@ func (s *ExpDecaySample) Variance() float64 {
 func (s *ExpDecaySample) update(t time.Time, v int64) float64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	i := s.updateInner(t, v)
+	return float64(i) / (float64(s.list.Size()))
+}
+
+// updates does update but several times under one lock acquire
+func (s *ExpDecaySample) updates(t time.Time, vs []int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, v := range vs {
+		s.updateInner(t, v)
+	}
+}
+
+func (s *ExpDecaySample) updateInner(t time.Time, v int64) int {
 	s.count++
 	if s.heap.Size() == s.reservoirSize {
 		v := s.heap.Pop()
@@ -270,7 +289,6 @@ func (s *ExpDecaySample) update(t time.Time, v int64) float64 {
 	samp := expDecaySample{k: math.Exp(t.Sub(s.t0).Seconds()*s.alpha) / rand.Float64(), v: v}
 	s.heap.Push(samp)
 	i := s.list.Push(samp.v)
-
 	// don't need to modify values in list as they're not keyed by time
 	if t.After(s.t1) {
 		values := s.heap.Values()
@@ -283,7 +301,7 @@ func (s *ExpDecaySample) update(t time.Time, v int64) float64 {
 			s.heap.Push(v)
 		}
 	}
-	return float64(i) / (float64(s.list.Size()))
+	return i
 }
 
 // NilSample is a no-op Sample.
@@ -326,6 +344,9 @@ func (NilSample) Sum() int64 { return 0 }
 
 // Update is a no-op.
 func (NilSample) Update(v int64) float64 { return 0.0 }
+
+// Updates is a no-op.
+func (NilSample) Updates(v []int64) {}
 
 // Values is a no-op.
 func (NilSample) Values() []int64 { return []int64{} }
@@ -454,6 +475,11 @@ func (s *SampleSnapshot) Sum() int64 { return SampleSum(s.values) }
 
 // Update panics.
 func (*SampleSnapshot) Update(int64) float64 {
+	panic("Update called on a SampleSnapshot")
+}
+
+// Updates panics.
+func (*SampleSnapshot) Updates([]int64) {
 	panic("Update called on a SampleSnapshot")
 }
 
@@ -605,9 +631,21 @@ func (s *UniformSample) Sum() int64 {
 }
 
 // Update samples a new value.
+func (s *UniformSample) Updates(vv []int64)  {
+	for _,v := range vv {
+		s.updateInner(v)
+	}
+}
+
+// Update samples a new value.
 func (s *UniformSample) Update(v int64) float64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	s.updateInner(v)
+	return 0.0
+}
+
+func (s *UniformSample) updateInner(v int64) {
 	s.count++
 	if len(s.values) < s.reservoirSize {
 		s.values = append(s.values, v)
@@ -617,7 +655,6 @@ func (s *UniformSample) Update(v int64) float64 {
 			s.values[int(r)] = v
 		}
 	}
-	return 0.0
 }
 
 // Values returns a copy of the values in the sample.
