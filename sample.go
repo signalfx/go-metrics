@@ -17,6 +17,7 @@ const rescaleThreshold = time.Hour
 type Sample interface {
 	Clear()
 	Count() int64
+	ResetCount()
 	Max() int64
 	Mean() float64
 	Min() int64
@@ -151,6 +152,13 @@ func (s *ExpDecaySample) Count() int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.count
+}
+
+// ResetCount sets count to 0
+func (s *ExpDecaySample) ResetCount() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.count = 0
 }
 
 // Max returns the maximum value in the sample, which may not be the maximum
@@ -313,6 +321,9 @@ func (NilSample) Clear() {}
 // Count is a no-op.
 func (NilSample) Count() int64 { return 0 }
 
+// Count is a no-op.
+func (NilSample) ResetCount() {}
+
 // Max is a no-op.
 func (NilSample) Max() int64 { return 0 }
 
@@ -439,6 +450,11 @@ func (*SampleSnapshot) Clear() {
 // Count returns the count of inputs at the time the snapshot was taken.
 func (s *SampleSnapshot) Count() int64 { return s.count }
 
+// ResetCount sets count to 0
+func (s *SampleSnapshot) ResetCount() {
+	panic("Reset count called")
+}
+
 // Max returns the maximal value at the time the snapshot was taken.
 func (s *SampleSnapshot) Max() int64 { return SampleMax(s.values) }
 
@@ -557,6 +573,13 @@ func (s *UniformSample) Count() int64 {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.count
+}
+
+// ResetCount sets count to 0
+func (s *UniformSample) ResetCount() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.count = 0
 }
 
 // Max returns the maximum value in the sample, which may not be the maximum
