@@ -85,7 +85,8 @@ func TestEquiv(t *testing.T) {
 				sample.Update(v)
 			}
 			oldRank := rank(values, v)
-			newRank := sample.Update(v)
+			sample.Update(v)
+			newRank := sample.Ranker().Rank(v)
 			if newRank > oldRank {
 				fmt.Println(v, oldRank, newRank, count)
 				count++

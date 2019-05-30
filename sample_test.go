@@ -176,7 +176,7 @@ func TestExpDecaySampleRescale(t *testing.T) {
 	s := NewExpDecaySample(2, 0.001).(*ExpDecaySample)
 	s.update(time.Now(), 1)
 	s.update(time.Now().Add(time.Hour+time.Microsecond), 1)
-	for _, v := range s.heap.Values() {
+	for _, v := range s.values.Values() {
 		if v.k == 0.0 {
 			t.Fatal("v.k == 0.0")
 		}
